@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.mason.memoryinfo">
+    <!-- android:largeHeap="true" 使用更多記憶體 -->
+    <!-- android:persistent="true" 希望不被刪掉 -->
+    <!-- 讀檔寫檔 -->
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <!-- 開機自動允許 -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- 電量統計 -->
+    <uses-permission android:name="android.permission.BATTERY_STATS" />
+    <!-- 格式化檔系統 -->
+    <!-- <uses-permission android:name="android.permission.MOUNT_FORMAT_FILESYSTEMS" /> -->
+    <!-- 掛載文件系統 -->
+    <!-- <uses-permission android:name="android.permission.MOUNT_UNMOUNT_FILESYSTEMS" /> -->
+    <!-- 讀寫系統敏感設置 -->
+    <!-- <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS"/> -->
+
+    <!-- 完全的網絡訪問權限 -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
+    <!-- 以下是使用wifi訪問網絡所需的權限 -->
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE"/>
+    <!-- 定位權限 -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:persistent="true"
+        android:theme="@style/AppTheme">
+        <activity android:name=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- 開機時呼叫 -->
+        <receiver android:name="BootBroadcastReceiver">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </receiver>
+
+        <!-- service 註冊 -->
+        <service
+            android:name=".autoRecording"
+            android:process=":Record" >
+            <intent-filter>
+                <action android:name="service.Record" />
+            </intent-filter>
+        </service>
+        <!-- service Recover 註冊 -->
+        <service
+            android:name=".autoRecover"
+            android:process=":Recover" >
+            <intent-filter>
+                <action android:name="service.Recover" />
+            </intent-filter>
+        </service>
+
+    </application>
+</manifest>
