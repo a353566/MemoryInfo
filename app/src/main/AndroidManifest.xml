@@ -44,6 +44,8 @@
             </intent-filter>
         </activity>
 
+        <activity android:name=".SettingActivity" />
+
         <!-- 開機時呼叫 -->
         <receiver android:name="BootBroadcastReceiver">
             <intent-filter>

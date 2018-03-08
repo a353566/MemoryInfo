@@ -31,17 +31,25 @@ public class autoRecover extends Service {
             RecordServiceIntent = new Intent();
             RecordServiceIntent.setAction("service.Record");
             RecordServiceIntent.setPackage("com.mason.memoryinfo");
-            startService(RecordServiceIntent);
-            bindService(RecordServiceIntent, RecordConnection, Context.BIND_AUTO_CREATE);
+            boolean bindSuccess = bindService(RecordServiceIntent, RecordConnection, Context.BIND_AUTO_CREATE);
+            if (!bindSuccess) {
+                startService(RecordServiceIntent);
+                bindService(RecordServiceIntent, RecordConnection, Context.BIND_AUTO_CREATE);
+            }
         }
     };
 
     @Override
     public void onCreate() {
+        // 開始 Service
         RecordServiceIntent = new Intent();
         RecordServiceIntent.setAction("service.Record");
         RecordServiceIntent.setPackage("com.mason.memoryinfo");
-        bindService(RecordServiceIntent, RecordConnection, Context.BIND_AUTO_CREATE);
+        boolean bindSuccess = bindService(RecordServiceIntent, RecordConnection, Context.BIND_AUTO_CREATE);
+        if (!bindSuccess) {
+            startService(RecordServiceIntent);
+            bindService(RecordServiceIntent, RecordConnection, Context.BIND_AUTO_CREATE);
+        }
     }
 
     @Override

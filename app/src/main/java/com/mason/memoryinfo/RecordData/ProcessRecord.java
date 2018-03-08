@@ -21,6 +21,8 @@ import java.io.IOException;
  */
 public class ProcessRecord implements RecordData{
     private static final String TAG = "autoRecordingLog:ProcessRecord";
+    // 基本設定
+    public boolean isFullScan = false;
     // 取得 activityManager，之後需要從此取出使用的的記憶體量
     private ActivityManager activityManager;
     // 要從這裡取出螢幕亮度
@@ -139,6 +141,10 @@ public class ProcessRecord implements RecordData{
             smallNum = bigSleepTime;
 
         return (smallNum>0) ? ((long) smallNum) : 0;
+    }
+
+    public void setFullScan(boolean FullScan) {
+        this.isFullScan = FullScan;
     }
 
     /** 判斷是否掃描和哪一種掃描 */
@@ -457,18 +463,23 @@ public class ProcessRecord implements RecordData{
      * 目前最吃時間的函式
      */
     private boolean getProcessTotalPss() {
-//        Log.d(TAG,"------------------------------getProcessTotalPss()------------------------------");
-//        int[] pids = new int[procAmount];
-//
-//        // 將 pid 都放入 pids 中
-//        for (int i = 0; i < procAmount; i++)
-//            pids[i] = procArray[i].pid;
-//
-//        // 再將資料接出來
-//        Debug.MemoryInfo[] memoryInfos = activityManager.getProcessMemoryInfo(pids);
-//        // 將記憶體用量寫回去
-//        for (int i = 0; i < procAmount; i++)
-//            procArray[i].TotalPss = memoryInfos[i].getTotalPss();
+        if (!isFullScan) {
+            for (int i = 0; i < procAmount; i++)
+                procArray[i].TotalPss = -1;
+            return false;
+        }
+        Log.d(TAG,"------------------------------getProcessTotalPss()------------------------------");
+        int[] pids = new int[procAmount];
+
+        // 將 pid 都放入 pids 中
+        for (int i = 0; i < procAmount; i++)
+            pids[i] = procArray[i].pid;
+
+        // 再將資料接出來
+        Debug.MemoryInfo[] memoryInfos = activityManager.getProcessMemoryInfo(pids);
+        // 將記憶體用量寫回去
+        for (int i = 0; i < procAmount; i++)
+            procArray[i].TotalPss = memoryInfos[i].getTotalPss();
 
         return true;
     }

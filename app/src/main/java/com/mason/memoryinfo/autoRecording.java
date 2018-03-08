@@ -24,11 +24,16 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Calendar;
+import java.util.Objects;
 
 public class autoRecording extends Service {
     private static String startTime;
     private static final String TAG = "autoRecordingLog";
     private static final boolean isDebug = false;
+
+    // 基本設定
+    public boolean isNotification = true;
+    public boolean isFullScan = false;
 
     // 基本宣告
     private ProcessRecord processRecord;
@@ -39,6 +44,7 @@ public class autoRecording extends Service {
     private BatteryRecord batteryRecord;
     private WriteFile writeFile;
     private ComputeTime computeTime;
+    private Context serviceContext;
 
     // Cellback 函式
     private CellbackControl cellbackControl;
@@ -55,12 +61,15 @@ public class autoRecording extends Service {
         // 與 Service 意外斷開連線時呼叫
         public void onServiceDisconnected(ComponentName className) {
             Log.e("autoRecording", "Service has unexpectedly disconnected");
-            // 開始 Service
+            // 開始 Recover Service
             RecoverServiceIntent = new Intent();
             RecoverServiceIntent.setAction("service.Recover");
             RecoverServiceIntent.setPackage("com.mason.memoryinfo");
-            startService(RecoverServiceIntent);
-            bindService(RecoverServiceIntent, RecoverConnection, Context.BIND_AUTO_CREATE);
+            boolean bindSuccess = bindService(RecoverServiceIntent, RecoverConnection, Context.BIND_AUTO_CREATE);
+            if (!bindSuccess) {
+                startService(RecoverServiceIntent);
+                bindService(RecoverServiceIntent, RecoverConnection, Context.BIND_AUTO_CREATE);
+            }
         }
     };
 
@@ -84,6 +93,9 @@ public class autoRecording extends Service {
         batteryRecord = new BatteryRecord(this);
         writeFile = new WriteFile();
         computeTime = new ComputeTime();
+        serviceContext = this;
+        // 基本設定
+        settingInitial();
         // Cellback 函式
         cellbackControl = new CellbackControl();
 
@@ -91,8 +103,11 @@ public class autoRecording extends Service {
         RecoverServiceIntent = new Intent();
         RecoverServiceIntent.setAction("service.Recover");
         RecoverServiceIntent.setPackage("com.mason.memoryinfo");
-        startService(RecoverServiceIntent);
-        bindService(RecoverServiceIntent, RecoverConnection, Context.BIND_AUTO_CREATE);
+        boolean bindSuccess = bindService(RecoverServiceIntent, RecoverConnection, Context.BIND_AUTO_CREATE);
+        if (!bindSuccess) {
+            startService(RecoverServiceIntent);
+            bindService(RecoverServiceIntent, RecoverConnection, Context.BIND_AUTO_CREATE);
+        }
 
         autoRecordData = new AutoRecordData();
         autoRecordData.start();
@@ -164,29 +179,37 @@ public class autoRecording extends Service {
                     if (processRecord.canRecord())
                         outProc.append(processRecord.recordData()).append('\n');
 
+                    //writeFile.write("process data get 1ok\n");
                     // ---------- WiFi 檔案 Part.1/2 ----------
                     // 看後面要不要紀錄
                     boolean isWiFiScan = wifiRecord.isNeedRecord();
+                    //writeFile.write("WiFi Part.1/2 ok\n");
                     // ======================================== sensor 檔案 ========================================
                     // 有掃描的話，就取出相關 sensor 參數，並記錄
                     // Screen
                     outSensor.append(screenRecord.recordData()).append('\n');
+                    writeFile.write("screenRecord ok\n");
 
                     // Battery
                     outSensor.append(batteryRecord.recordData()).append('\n');
+                    //writeFile.write("Battery ok\n");
 
                     // WiFi，GPS
                     outSensor.append(wifiRecord.isWiFiOpen() ? "WiFi:Open||" : "WiFi:Close||");
                     outSensor.append(wifiRecord.isGPSOpen() ? "GPS:Open" : "GPS:Close").append('\n');
+                    //writeFile.write("WiFi，GPS ok\n");
 
                     // G-sensor
                     if (sensorRecord.isNeedRecord() && sensorRecord.canRecord())
                         outSensor.append(sensorRecord.recordData()).append('\n');
+                    //writeFile.write("G-sensor ok\n");
 
                     // Location
                     if (locationRecord.isNeedRecord() && locationRecord.canRecord())
                         outSensor.append(locationRecord.recordData()).append('\n');
+                    //writeFile.write("Location ok\n");
 
+                    //writeFile.write("loop WiFi2\n");
                     // ---------- WiFi 檔案 Part.2/2 ----------
                     // 一段時間後看結果
                     if (isWiFiScan && wifiRecord.canRecord()) {
@@ -237,6 +260,9 @@ public class autoRecording extends Service {
     // 取得系統的通知服務
     private NotificationManager notificationManager;
     private void Notification(String test) {
+        if (!isNotification) {
+            return;
+        }
         // 通知的識別號碼
         int notifyID = 1;
         // ========================================= 跳出通知 =========================================
@@ -408,6 +434,21 @@ public class autoRecording extends Service {
         }
     }
 
+    /** 基本設定 */
+    private void settingInitial() {
+        RecordSetting setting = new RecordSetting(serviceContext);
+        // close
+        setting.close();
+
+        // Notification
+        String temp = setting.getSetting(RecordSetting.Notification);
+        isNotification = Objects.equals(temp, "true") || !Objects.equals(temp, "false") && RecordSetting.isNotification;
+        // FullScan
+        temp = setting.getSetting(RecordSetting.FullScan);
+        isFullScan = Objects.equals(temp, "true") || !Objects.equals(temp, "false") && RecordSetting.isFullScan;
+        processRecord.setFullScan(isFullScan);
+    }
+
     /**
      * Cellback 控制
      * 專門回傳資料給主程式 (MainActivity)
@@ -440,6 +481,11 @@ public class autoRecording extends Service {
         }
 
         void setCellback(int funcID, boolean isGetData, IRemoteServiceCallback callback) {
+            if (funcID == MainActivity.settingResult) {
+                settingInitial();
+                return;
+            }
+            settingInitial();
             this.funcID = funcID;
             this.isGetData = isGetData;
             this.callback = callback;

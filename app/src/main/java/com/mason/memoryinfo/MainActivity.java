@@ -11,6 +11,7 @@ import android.os.IBinder;
 import android.os.RemoteException;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.text.method.ScrollingMovementMethod;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -23,8 +24,11 @@ import java.util.LinkedList;
 import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
+    public static final int settingResult = 2;
     // 專門控制輸出
     private OutputControl outputControl;
+    // 輸出一些簡單 deBug 的訊息
+    private DeBugTextControl deBugTextControl;
 
     private Intent serviceIntent;
     private boolean isBind = false;
@@ -36,26 +40,28 @@ public class MainActivity extends AppCompatActivity {
                 @Override
                 public void run() {
                     outputControl.OutputData(outputDataPackage);
-                    //((TextView) findViewById(R.id.test)).setText(outputDataPackage);
-                    // text 滑動設定
-                    //((TextView) findViewById(R.id.test)).setMovementMethod(ScrollingMovementMethod.getInstance());
                 }
             });
         }
     };
+    private IRemoteService mIRemoteService;
 
     private ServiceConnection mConnection = new ServiceConnection() {
         // 與 Service 連線建立時會呼叫
         public void onServiceConnected(ComponentName className, IBinder service) {
             // 用 IRemoteService.Stub.asInterface(service) 取出連線的 Stub
             // 之後就可以呼叫此 interface 來溝通
-            outputControl.setIRemoteService(IRemoteService.Stub.asInterface(service));
+            mIRemoteService = IRemoteService.Stub.asInterface(service);
+            outputControl.setIRemoteService(mIRemoteService);
         }
 
         // 與 Service 意外斷開連線時呼叫
         public void onServiceDisconnected(ComponentName className) {
             Log.e("MainActivity", "Service has unexpectedly disconnected");
+            isBind = false;
+            mIRemoteService = null;
             outputControl.setIRemoteService(null);
+            deBugTextControl.outputText("Service has unexpectedly disconnected !!!");
         }
     };
 
@@ -66,41 +72,94 @@ public class MainActivity extends AppCompatActivity {
         // outputControl 宣告，並傳入 ListView
         outputControl = new OutputControl((ListView) findViewById(R.id.listview));
 
-        // 開始 Service
+        // outputControl 宣告，並傳入 ListView
+        deBugTextControl = new DeBugTextControl((TextView) findViewById(R.id.deBugText));
+
+        // 取得各種權限
+        getPermissions();
+
+        // Service 基本設定
         serviceIntent = new Intent();
         serviceIntent.setAction("service.Record");
         serviceIntent.setPackage("com.mason.memoryinfo");
-        startService(serviceIntent);
+        // 開始 Service
+        isBind = bindService(serviceIntent, mConnection, Context.BIND_AUTO_CREATE);
+        if (!isBind) {
+            deBugTextControl.outputText("Service bind fell");
+            startService(serviceIntent);
+            isBind = bindService(serviceIntent, mConnection, Context.BIND_AUTO_CREATE);
+            deBugTextControl.outputText(isBind ? "Service start and bind OK!!" : "Service bind fell again");
+        } else {
+            deBugTextControl.outputText("Service bind OK!!");
+        }
 
         // 連接 Service，也開始輸出
-        findViewById(R.id.button1).setOnClickListener(new View.OnClickListener() {
+        findViewById(R.id.bind).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                bindService(serviceIntent, mConnection, Context.BIND_AUTO_CREATE);
-                isBind = true;
-                outputControl.setContinue(true);
+                if (mIRemoteService==null || !isBind) {
+                    startService(serviceIntent);
+                    isBind = bindService(serviceIntent, mConnection, Context.BIND_AUTO_CREATE);
+                }
+                if (isBind) {
+                    outputControl.getNextData();
+                    deBugTextControl.outputText("procData Lading !!!");
+                }
             }
         });
 
         // 停止 Bind，也停止輸出
-        findViewById(R.id.button2).setOnClickListener(new View.OnClickListener() {
+        findViewById(R.id.unbind).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 if (isBind) {
                     unbindService(mConnection);
                     isBind = false;
+                    mIRemoteService = null;
+                    deBugTextControl.outputText("Service unbind OK !!!");
                 }
-                outputControl.setContinue(false);
             }
         });
 
-        // 取得各種權限
-        getPermissions();
+        // 設定的按鈕
+        findViewById(R.id.settingButton).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                deBugTextControl.outputText("Setting !!!");
+                Intent intent = new Intent(getApplicationContext(), SettingActivity.class);
+                startActivityForResult(intent, settingResult);
+            }
+        });
     }
 
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode==settingResult) {
+            deBugTextControl.outputText("Setting return");
+            if (mIRemoteService==null || !isBind) {
+                deBugTextControl.outputText("Service bind fell");
+                startService(serviceIntent);
+                isBind = bindService(serviceIntent, mConnection, Context.BIND_AUTO_CREATE);
+                deBugTextControl.outputText(isBind ? "Service start and bind OK!!" : "Service bind fell again");
+            } else {
+                deBugTextControl.outputText("Service is bind");
+            }
+            try {
+                mIRemoteService.basicTypes(settingResult, true, mIRemoteServiceCallback);
+                deBugTextControl.outputText("Setting OK!!!");
+            } catch (RemoteException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    /**
+     * 輸出 procList 的訊息
+     */
     private class OutputControl {
         private int funcID;
-        private boolean continueOutput;
+        private boolean getOneData;
         private IRemoteService mIRemoteService;
 
         // output listView
@@ -108,7 +167,7 @@ public class MainActivity extends AppCompatActivity {
         private MyAdapter adapter;
         OutputControl(ListView listView) {
             funcID = 0;
-            continueOutput = false;
+            getOneData = true;
             this.listView = listView;
         }
 
@@ -117,12 +176,13 @@ public class MainActivity extends AppCompatActivity {
             Continue();
         }
 
-        void setContinue(boolean continueOutput) {
-            this.continueOutput = continueOutput;
+        public void getNextData() {
+            getOneData = true;
+            Continue();
         }
 
-        boolean Continue() {
-            if (continueOutput && mIRemoteService != null) {
+        void Continue() {
+            if (getOneData && mIRemoteService != null) {
                 funcID++;
                 try {
                     mIRemoteService.basicTypes(funcID, true, mIRemoteServiceCallback);
@@ -130,7 +190,6 @@ public class MainActivity extends AppCompatActivity {
                     e.printStackTrace();
                 }
             }
-            return continueOutput;
         }
 
         void OutputData(String data) {
@@ -161,6 +220,10 @@ public class MainActivity extends AppCompatActivity {
                     adapter.setProcessDataList(processDataList);
                 }
                 listView.setAdapter(adapter);
+
+                // 有正確輸出的話就先不用下一次
+                getOneData = false;
+                deBugTextControl.outputText("procData OK !!!");
             }
             // 繼續下一次
             Continue();
@@ -214,7 +277,7 @@ public class MainActivity extends AppCompatActivity {
                         ground = procString.substring(begin, end);
                         break;
                     default:
-                        ground = "null";
+                        ground = "(error)null";
                 }
 
                 // oom_adj
@@ -229,7 +292,7 @@ public class MainActivity extends AppCompatActivity {
             }
 
             String getSubTitle() {
-                return "pid：" + pid + "\tTotalPss：" + TotalPss + "\toom_score：" + oom_score + "\tground：" + ground + "\toom_adj：" + oom_adj;
+                return "pid：" + pid + "\tTotalPss：" + TotalPss + "\toom_score：" + oom_score + "\nground：" + ground + "\toom_adj：" + oom_adj;
             }
         }
 
@@ -291,6 +354,31 @@ public class MainActivity extends AppCompatActivity {
                     this.txtSubTitle = txtSubTitle;
                 }
             }
+        }
+    }
+
+    /**
+     * 輸出 deBug 的訊息
+     */
+    private class DeBugTextControl {
+        private TextView textView;
+        private String textStr;
+
+        DeBugTextControl(TextView textView) {
+            this.textView = textView;
+            textStr = "";
+            // text 滑動設定
+            textView.setMovementMethod(ScrollingMovementMethod.getInstance());
+        }
+
+        public void outputText(String str) {
+            textStr += str + "\n";
+            textView.setText(textStr);
+        }
+
+        public void clean() {
+            textStr = "";
+            textView.setText(textStr);
         }
     }
 

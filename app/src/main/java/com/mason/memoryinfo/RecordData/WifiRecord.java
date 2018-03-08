@@ -88,7 +88,7 @@ public class WifiRecord implements RecordData {
         output.append("WiFiConnect:");
 
         // 對方 MAC 為 "00:00:00:00:00:00" 就是沒有連接
-        if (wifiConnectMac.equals("00:00:00:00:00:00")) {
+        if (wifiConnectMac == null || wifiConnectMac.equals("00:00:00:00:00:00")) {
             output.append("Disconnect");
         }
         // 已連線，回傳連線資訊
