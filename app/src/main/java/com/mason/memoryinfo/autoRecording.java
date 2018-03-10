@@ -39,7 +39,7 @@ public class autoRecording extends Service {
     private ProcessRecord processRecord;
     private ScreenRecord screenRecord;
     private LocationRecord locationRecord;
-    private WifiRecord wifiRecord;
+    //private WifiRecord wifiRecord;
     private SensorRecord sensorRecord;
     private BatteryRecord batteryRecord;
     private WriteFile writeFile;
@@ -88,7 +88,7 @@ public class autoRecording extends Service {
         screenRecord = new ScreenRecord((PowerManager) getSystemService(Context.POWER_SERVICE));
         processRecord = new ProcessRecord((ActivityManager) getSystemService(Context.ACTIVITY_SERVICE), screenRecord);
         locationRecord = new LocationRecord(this);
-        wifiRecord = new WifiRecord(this);
+        //wifiRecord = new WifiRecord(this);
         sensorRecord = new SensorRecord((SensorManager) getSystemService(Context.SENSOR_SERVICE));
         batteryRecord = new BatteryRecord(this);
         writeFile = new WriteFile();
@@ -182,7 +182,7 @@ public class autoRecording extends Service {
                     //writeFile.write("process data get 1ok\n");
                     // ---------- WiFi 檔案 Part.1/2 ----------
                     // 看後面要不要紀錄
-                    boolean isWiFiScan = wifiRecord.isNeedRecord();
+                    //boolean isWiFiScan = wifiRecord.isNeedRecord();
                     //writeFile.write("WiFi Part.1/2 ok\n");
                     // ======================================== sensor 檔案 ========================================
                     // 有掃描的話，就取出相關 sensor 參數，並記錄
@@ -195,8 +195,8 @@ public class autoRecording extends Service {
                     //writeFile.write("Battery ok\n");
 
                     // WiFi，GPS
-                    outSensor.append(wifiRecord.isWiFiOpen() ? "WiFi:Open||" : "WiFi:Close||");
-                    outSensor.append(wifiRecord.isGPSOpen() ? "GPS:Open" : "GPS:Close").append('\n');
+                    //outSensor.append(wifiRecord.isWiFiOpen() ? "WiFi:Open||" : "WiFi:Close||");
+                    //outSensor.append(wifiRecord.isGPSOpen() ? "GPS:Open" : "GPS:Close").append('\n');
                     //writeFile.write("WiFi，GPS ok\n");
 
                     // G-sensor
@@ -212,9 +212,9 @@ public class autoRecording extends Service {
                     //writeFile.write("loop WiFi2\n");
                     // ---------- WiFi 檔案 Part.2/2 ----------
                     // 一段時間後看結果
-                    if (isWiFiScan && wifiRecord.canRecord()) {
+                    /*if (isWiFiScan && wifiRecord.canRecord()) {
                         outWiFi.append(wifiRecord.recordData()).append('\n');
-                    }
+                    }*/
 
                     // ========================================= 寫入檔案 =========================================
                     writeFile.write(outputString, outputString.length);
