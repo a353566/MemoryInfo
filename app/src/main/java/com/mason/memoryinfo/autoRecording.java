@@ -28,7 +28,7 @@ import java.util.Objects;
 
 public class autoRecording extends Service {
     private static String startTime;
-    private static final String TAG = "autoRecordingLog";
+    private static final String TAG = "autoRecording";
     private static final boolean isDebug = false;
 
     // 基本設定
@@ -53,7 +53,7 @@ public class autoRecording extends Service {
     private ServiceConnection RecoverConnection = new ServiceConnection() {
         // 與 Service 連線建立時會呼叫
         public void onServiceConnected(ComponentName className, IBinder service) {
-            Log.d("autoRecording", "onServiceConnected");
+            Log.d(TAG, "onServiceConnected");
             // 用 IRemoteService.Stub.asInterface(service) 取出連線的 Stub
             // 之後就可以呼叫此 interface 來溝通
         }
@@ -61,15 +61,9 @@ public class autoRecording extends Service {
         // 與 Service 意外斷開連線時呼叫
         public void onServiceDisconnected(ComponentName className) {
             Log.e("autoRecording", "Service has unexpectedly disconnected");
-            // 開始 Recover Service
-            RecoverServiceIntent = new Intent();
-            RecoverServiceIntent.setAction("service.Recover");
-            RecoverServiceIntent.setPackage("com.mason.memoryinfo");
-            boolean bindSuccess = bindService(RecoverServiceIntent, RecoverConnection, Context.BIND_AUTO_CREATE);
-            if (!bindSuccess) {
-                startService(RecoverServiceIntent);
-                bindService(RecoverServiceIntent, RecoverConnection, Context.BIND_AUTO_CREATE);
-            }
+            // 斷掉後就是重啟 autoRecording
+            boolean bindSuccess = contactService();
+            Log.d(TAG, "Service restart " + (bindSuccess ? "good" : "fail"));
         }
     };
 
@@ -81,8 +75,6 @@ public class autoRecording extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
-        Log.d(TAG, "onCreate");
-
         android_id = Settings.Secure.getString(this.getContentResolver(), Settings.Secure.ANDROID_ID);
         // 基本宣告
         screenRecord = new ScreenRecord((PowerManager) getSystemService(Context.POWER_SERVICE));
@@ -99,20 +91,27 @@ public class autoRecording extends Service {
         // Cellback 函式
         cellbackControl = new CellbackControl();
 
-        // 開始 Recover Service
-        RecoverServiceIntent = new Intent();
-        RecoverServiceIntent.setAction("service.Recover");
-        RecoverServiceIntent.setPackage("com.mason.memoryinfo");
-        boolean bindSuccess = bindService(RecoverServiceIntent, RecoverConnection, Context.BIND_AUTO_CREATE);
-        if (!bindSuccess) {
-            startService(RecoverServiceIntent);
-            bindService(RecoverServiceIntent, RecoverConnection, Context.BIND_AUTO_CREATE);
-        }
-
         autoRecordData = new AutoRecordData();
         autoRecordData.start();
 
         notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        contactService();
+    }
+
+    private boolean contactService() {
+        RecoverServiceIntent = new Intent();
+        RecoverServiceIntent.setAction("service.Recover");
+        RecoverServiceIntent.setPackage("com.mason.memoryinfo");
+        // 開始 Recover Service
+        startService(RecoverServiceIntent);
+        boolean bindSuccess = bindService(RecoverServiceIntent, RecoverConnection, Context.BIND_WAIVE_PRIORITY);
+        if (!bindSuccess) {
+            // 開始 Recover Service
+            startService(RecoverServiceIntent);
+            bindSuccess = bindService(RecoverServiceIntent, RecoverConnection, Context.BIND_WAIVE_PRIORITY);
+        }
+        Log.d(TAG, "onServiceConnected : bindSuccess:" + bindSuccess);
+        return bindSuccess;
     }
 
     /**
@@ -157,7 +156,6 @@ public class autoRecording extends Service {
             startTime = getDate();
             Notification("已從" + startTime + "紀錄至現在");
             while (loop) {
-                //writeFile.write("loop start!\n");
                 // 先讓計時開始
                 computeTime.startTime();
 
@@ -173,43 +171,34 @@ public class autoRecording extends Service {
                 // ========================================= 檢查是否掃描 =========================================
                 // 紀錄是否有 scan (這邊也會直接開始記錄相關資訊)
                 boolean isScan = processRecord.isNeedRecord();
-                //writeFile.write("ScanProcess OK\n");
                 // 有掃描的話，就取出相關 sensor 參數，並記錄
                 if (isScan) {
                     if (processRecord.canRecord())
                         outProc.append(processRecord.recordData()).append('\n');
 
-                    //writeFile.write("process data get 1ok\n");
                     // ---------- WiFi 檔案 Part.1/2 ----------
                     // 看後面要不要紀錄
                     //boolean isWiFiScan = wifiRecord.isNeedRecord();
-                    //writeFile.write("WiFi Part.1/2 ok\n");
                     // ======================================== sensor 檔案 ========================================
                     // 有掃描的話，就取出相關 sensor 參數，並記錄
                     // Screen
                     outSensor.append(screenRecord.recordData()).append('\n');
-                    writeFile.write("screenRecord ok\n");
 
                     // Battery
                     outSensor.append(batteryRecord.recordData()).append('\n');
-                    //writeFile.write("Battery ok\n");
 
                     // WiFi，GPS
                     //outSensor.append(wifiRecord.isWiFiOpen() ? "WiFi:Open||" : "WiFi:Close||");
                     //outSensor.append(wifiRecord.isGPSOpen() ? "GPS:Open" : "GPS:Close").append('\n');
-                    //writeFile.write("WiFi，GPS ok\n");
 
                     // G-sensor
                     if (sensorRecord.isNeedRecord() && sensorRecord.canRecord())
                         outSensor.append(sensorRecord.recordData()).append('\n');
-                    //writeFile.write("G-sensor ok\n");
 
                     // Location
                     if (locationRecord.isNeedRecord() && locationRecord.canRecord())
                         outSensor.append(locationRecord.recordData()).append('\n');
-                    //writeFile.write("Location ok\n");
 
-                    //writeFile.write("loop WiFi2\n");
                     // ---------- WiFi 檔案 Part.2/2 ----------
                     // 一段時間後看結果
                     /*if (isWiFiScan && wifiRecord.canRecord()) {
@@ -252,7 +241,6 @@ public class autoRecording extends Service {
                         e.printStackTrace();
                     }
                 }
-                //writeFile.write("loop end!\n");
             }
         }
     }
@@ -354,7 +342,7 @@ public class autoRecording extends Service {
                 File file = new File(root + "/" + directory);
                 // 檢察跟目錄是否在
                 if (!file.mkdirs())
-                    Log.e("WriteFile", "Directory not created");
+                    Log.d("WriteFile", "Directory not created");
 
                 // 檢查是否可以寫入
                 if (file.canWrite()) {
@@ -400,8 +388,8 @@ public class autoRecording extends Service {
                 String root = Environment.getExternalStorageDirectory().toString();
                 File file = new File(root + "/" + directory);
                 // 檢察跟目錄是否在
-                //if (!file.mkdirs())
-                //    Log.e("WriteFile", "Directory not created");
+                if (!file.mkdirs())
+                    Log.d("WriteFile", "Directory not created");
 
                 // 檢查是否可以寫入
                 if (file.canWrite()) {

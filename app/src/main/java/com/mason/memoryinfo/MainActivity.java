@@ -49,6 +49,7 @@ public class MainActivity extends AppCompatActivity {
     private ServiceConnection mConnection = new ServiceConnection() {
         // 與 Service 連線建立時會呼叫
         public void onServiceConnected(ComponentName className, IBinder service) {
+            Log.d("MainActivity", "onServiceConnected");
             // 用 IRemoteService.Stub.asInterface(service) 取出連線的 Stub
             // 之後就可以呼叫此 interface 來溝通
             mIRemoteService = IRemoteService.Stub.asInterface(service);
@@ -71,39 +72,27 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         // outputControl 宣告，並傳入 ListView
         outputControl = new OutputControl((ListView) findViewById(R.id.listview));
-
-        // outputControl 宣告，並傳入 ListView
+        // deBugTextControl 宣告，並傳入 TextView
         deBugTextControl = new DeBugTextControl((TextView) findViewById(R.id.deBugText));
 
         // 取得各種權限
         getPermissions();
 
-        // Service 基本設定
-        serviceIntent = new Intent();
-        serviceIntent.setAction("service.Record");
-        serviceIntent.setPackage("com.mason.memoryinfo");
-        // 開始 Service
-        isBind = bindService(serviceIntent, mConnection, Context.BIND_AUTO_CREATE);
-        if (!isBind) {
-            deBugTextControl.outputText("Service bind fell");
-            startService(serviceIntent);
-            isBind = bindService(serviceIntent, mConnection, Context.BIND_AUTO_CREATE);
-            deBugTextControl.outputText(isBind ? "Service start and bind OK!!" : "Service bind fell again");
-        } else {
-            deBugTextControl.outputText("Service bind OK!!");
-        }
+        // Service 連接
+        isBind = contactService();
 
         // 連接 Service，也開始輸出
         findViewById(R.id.bind).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 if (mIRemoteService==null || !isBind) {
-                    startService(serviceIntent);
-                    isBind = bindService(serviceIntent, mConnection, Context.BIND_AUTO_CREATE);
+                    isBind = contactService();
                 }
                 if (isBind) {
                     outputControl.getNextData();
-                    deBugTextControl.outputText("procData Lading !!!");
+                    deBugTextControl.outputText("procData Lading...");
+                } else {
+                    deBugTextControl.outputText("Service bind fail QAQ");
                 }
             }
         });
@@ -112,7 +101,7 @@ public class MainActivity extends AppCompatActivity {
         findViewById(R.id.unbind).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if (isBind) {
+                if (mIRemoteService!=null || isBind) {
                     unbindService(mConnection);
                     isBind = false;
                     mIRemoteService = null;
@@ -130,6 +119,27 @@ public class MainActivity extends AppCompatActivity {
                 startActivityForResult(intent, settingResult);
             }
         });
+    }
+
+    private boolean contactService() {
+        // Service 基本設定
+        serviceIntent = new Intent();
+        serviceIntent.setAction("service.Record");
+        serviceIntent.setPackage("com.mason.memoryinfo");
+        // 開始 Service
+        deBugTextControl.outputText("Service 1st start...");
+        startService(serviceIntent);
+        // 連接 Service
+        boolean bindSuccess = isBind = bindService(serviceIntent, mConnection, Context.BIND_WAIVE_PRIORITY);
+        if (!isBind) {
+            deBugTextControl.outputText("Service bind fail and 2nd start...");
+            startService(serviceIntent);
+            isBind = bindService(serviceIntent, mConnection, Context.BIND_WAIVE_PRIORITY);
+            deBugTextControl.outputText(isBind ? "Service 2nd bind OK!!" : "Service 2nd bind fell again");
+        } else {
+            deBugTextControl.outputText("Service 1st bind OK!!");
+        }
+        return bindSuccess;
     }
 
     @Override

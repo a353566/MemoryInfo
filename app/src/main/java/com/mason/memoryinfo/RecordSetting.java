@@ -7,7 +7,6 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 
-import java.security.AccessControlContext;
 import java.util.Objects;
 
 import static android.provider.BaseColumns._ID;  //這個是資料庫都會有個唯一的ID

@@ -1,14 +1,11 @@
 package com.mason.memoryinfo;
 
 import android.app.Activity;
-import android.content.Context;
 import android.os.Bundle;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
 
 import java.util.Objects;
-
-import static com.mason.memoryinfo.RecordSetting.isFullScan;
 
 /**
  * Created by LALALA on 2018/3/8.
