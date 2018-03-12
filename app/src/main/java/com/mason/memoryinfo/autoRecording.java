@@ -341,8 +341,11 @@ public class autoRecording extends Service {
                 String root = Environment.getExternalStorageDirectory().toString();
                 File file = new File(root + "/" + directory);
                 // 檢察跟目錄是否在
-                if (!file.mkdirs())
-                    Log.d("WriteFile", "Directory not created");
+                if (!file.exists()) {
+                    if (!file.mkdirs()) {
+                        Log.d(TAG, "(WriteFile) Directory not created");
+                    }
+                }
 
                 // 檢查是否可以寫入
                 if (file.canWrite()) {
@@ -388,8 +391,11 @@ public class autoRecording extends Service {
                 String root = Environment.getExternalStorageDirectory().toString();
                 File file = new File(root + "/" + directory);
                 // 檢察跟目錄是否在
-                if (!file.mkdirs())
-                    Log.d("WriteFile", "Directory not created");
+                if (!file.exists()) {
+                    if (!file.mkdirs()) {
+                        Log.d("WriteFile", "Directory not created");
+                    }
+                }
 
                 // 檢查是否可以寫入
                 if (file.canWrite()) {
