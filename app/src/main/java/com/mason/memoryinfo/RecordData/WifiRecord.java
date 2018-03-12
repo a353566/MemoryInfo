@@ -89,6 +89,7 @@ public class WifiRecord implements RecordData {
 
         // 對方 MAC 為 "00:00:00:00:00:00" 就是沒有連接
         if (wifiConnectMac == null || wifiConnectMac.equals("00:00:00:00:00:00")) {
+            wifiConnectMac = "00:00:00:00:00:00";
             output.append("Disconnect");
         }
         // 已連線，回傳連線資訊
@@ -104,7 +105,12 @@ public class WifiRecord implements RecordData {
     /** 回傳連線是否已改變 */
     private boolean isConnectChange() {
         // 利用 Mac 來得知有沒有變化
-        return !(wifiManager.getConnectionInfo().getBSSID().equals(wifiConnectMac));
+        String newwifiConnectMac = wifiManager.getConnectionInfo().getBSSID();
+        if (newwifiConnectMac == null || newwifiConnectMac.equals("00:00:00:00:00:00")) {
+            return !(wifiConnectMac == null || wifiConnectMac.equals("00:00:00:00:00:00"));
+        } else {
+            return (wifiConnectMac == null) || !(newwifiConnectMac.equals(wifiConnectMac));
+        }
     }
     /** 回傳所有 WiFiList 資料 */
     private String scanResultOutput() {
